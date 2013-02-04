@@ -1,0 +1,4 @@
+*.o
+*.exe
+coloradjust
+out.icc
