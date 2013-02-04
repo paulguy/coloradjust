@@ -1,0 +1,17 @@
+Color LUT editor
+
+Easily make LUTs for loading with a program like xcalib, line graph editor.
+
+Controls
+
+Left/Right	Adjust input value
+Up/Down		Adjust output value
+A		Select Red component graph
+S		Select Green component graph
+D		Select Blue component graph
+Z/X		Previous / Next node
+C		Create new node before current node, or after if there's no space there, or not at all if there's no space in either 
+direction
+V		Delete current node
+W		Write ICC profile to out.icc
+Q		Quit
