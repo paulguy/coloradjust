@@ -33,7 +33,8 @@ Uint32 gridcolor, bordercolor, textcolor, cursorcolor;
 Uint32 redcolor, greencolor, bluecolor, colortextcolor;
 bfont *font;
 Mode mode;
-char status[256];
+SDL_Surface *statusmsg = NULL;
+Uint32 statusx;
 const char STATUS_READY[]	= "Ready";
 const char STATUS_RED[]		= "Red graph selected";
 const char STATUS_GREEN[]	= "Green graph selected";
@@ -50,6 +51,7 @@ void plotgraph(Uint8 *points, Uint8 r, Uint8 g, Uint8 b);
 void drawramps(Uint8 *red, Uint8 *green, Uint8 *blue);
 void drawscreen(Uint8 *red, Uint8 *green, Uint8 *blue, Mark *marksel);
 int saveicc(char *skeleton, char *iccfile, Uint8 *red, Uint8 *green, Uint8 *blue);
+int updateStatus(const char *status);
 
 int main(int argc, char **argv) {
 	int running, i;
@@ -146,7 +148,7 @@ int main(int argc, char **argv) {
 	moveup = movedown = moveleft = moveright
 	= moveupstep = movedownstep = moveleftstep = moverightstep
 	= rebuild = 0;
-	memcpy(status, STATUS_READY, sizeof(STATUS_READY));
+	updateStatus(STATUS_READY);
 
 	drawscreen(red, green, blue, curmark);
 	while(running == 1) {
@@ -162,21 +164,24 @@ int main(int argc, char **argv) {
 							break;
 						case SDLK_a:
 							if(mode != RED) {
-								memcpy(status, STATUS_RED, sizeof(STATUS_RED));
+								updateStatus(STATUS_RED);
+								statusx = 640;
 								mode = RED;
 								curmark = rmarks;
 							}
 							break;
 						case SDLK_s:
 							if(mode != GREEN) {
-								memcpy(status, STATUS_GREEN, sizeof(STATUS_GREEN));
+								updateStatus(STATUS_GREEN);
+								statusx = 640;
 								mode = GREEN;
 								curmark = gmarks;
 							}
 							break;
 						case SDLK_d:
 							if(mode != BLUE) {
-								memcpy(status, STATUS_BLUE, sizeof(STATUS_BLUE));
+								updateStatus(STATUS_BLUE);
+								statusx = 640;
 								mode = BLUE;
 								curmark = bmarks;
 							}
@@ -233,9 +238,11 @@ int main(int argc, char **argv) {
 							break;
 						case SDLK_w:
 							if(saveicc("skeleton.icc", "out.icc", red, green, blue) == -1) {
-								memcpy(status, STATUS_CANTSAVE, sizeof(STATUS_CANTSAVE));
+								updateStatus(STATUS_CANTSAVE);
+								statusx = 640;
 							} else {
-								memcpy(status, STATUS_SAVED, sizeof(STATUS_SAVED));
+								updateStatus(STATUS_SAVED);
+								statusx = 640;
 							}
 						default:
 							break;
@@ -357,6 +364,24 @@ int main(int argc, char **argv) {
 	exit(EXIT_SUCCESS);
 }
 
+int updateStatus(const char *status) {
+	SDL_Surface *temp;
+
+	if(statusmsg != NULL)
+		SDL_FreeSurface(statusmsg);
+
+	temp = btext_render(font, status, 0, textcolor, NULL, BTEXT_BGTRANSPARENT);
+	if(temp == NULL)
+		return(-1);
+	statusmsg = SDL_ConvertSurface(temp, screen->format, SDL_SWSURFACE);
+	SDL_FreeSurface(temp);
+	if(statusmsg == NULL)
+		return(-1);
+	statusx = screen->w;
+
+	return(0);
+}
+
 int buildcurve(Uint8 *ramp, Mark *marks) {
 	int start, change, length, initial, i;
 	double slope;
@@ -433,44 +458,44 @@ SDL_Surface *createBackground() {
 	rect.y = 258;
 	for(rect.x = 0; rect.x < 256; rect.x += 32) {
 		snprintf(buffer, 32, "%d", rect.x);
-		btext_renderToSurface(font, buffer, 0, textcolor, surface, &rect, BTEXT_DEFAULT);
+		btext_renderToSurface(font, buffer, 0, textcolor, surface, &rect, BTEXT_BGTRANSPARENT);
 	}
 	rect.x = 258;
 	for(rect.y = 0; rect.y < 256; rect.y += 32) {
 		snprintf(buffer, 32, "%d", 255 - rect.y);
-		btext_renderToSurface(font, buffer, 0, textcolor, surface, &rect, BTEXT_DEFAULT);
+		btext_renderToSurface(font, buffer, 0, textcolor, surface, &rect, BTEXT_BGTRANSPARENT);
 	}
 	rect.y = 258;
-	btext_renderToSurface(font, "255", 0, textcolor, surface, &rect, BTEXT_DEFAULT);
+	btext_renderToSurface(font, "255", 0, textcolor, surface, &rect, BTEXT_BGTRANSPARENT);
 	rect.y = 249;
-	btext_renderToSurface(font, "0", 0, textcolor, surface, &rect, BTEXT_DEFAULT);
-	rect.x = 128;
-	rect.y = 266;
-	btext_renderToSurface(font, "IN", 0, textcolor, surface, &rect, BTEXT_DEFAULT);
+	btext_renderToSurface(font, "0", 0, textcolor, surface, &rect, BTEXT_BGTRANSPARENT);
 	rect.x = 279;
 	rect.y = 128 - (font->height + font->height / 2);
-	btext_renderToSurface(font, "O", 0, textcolor, surface, &rect, BTEXT_DEFAULT);
+	btext_renderToSurface(font, "O", 0, textcolor, surface, &rect, BTEXT_BGTRANSPARENT);
 	rect.y += font->height;
-	btext_renderToSurface(font, "U", 0, textcolor, surface, &rect, BTEXT_DEFAULT);
+	btext_renderToSurface(font, "U", 0, textcolor, surface, &rect, BTEXT_BGTRANSPARENT);
 	rect.y += font->height;
-	btext_renderToSurface(font, "T", 0, textcolor, surface, &rect, BTEXT_DEFAULT);
+	btext_renderToSurface(font, "T", 0, textcolor, surface, &rect, BTEXT_BGTRANSPARENT);
+	rect.x = 128;
+	rect.y = 258 + font->height;
+	btext_renderToSurface(font, "IN", 0, textcolor, surface, &rect, BTEXT_BGTRANSPARENT);
 	rect.x = 0;
-	rect.y = 274;
-	btext_renderToSurface(font, "LEFT/RIGHT: Decrement or incremenet input value.", 0, textcolor, surface, &rect, BTEXT_DEFAULT);
 	rect.y += font->height;
-	btext_renderToSurface(font, "LEFT/RIGHT: Decrement or incremenet output value.", 0, textcolor, surface, &rect, BTEXT_DEFAULT);
+	btext_renderToSurface(font, "LEFT/RIGHT: Decrement or incremenet input value.", 0, textcolor, surface, &rect, BTEXT_BGTRANSPARENT);
 	rect.y += font->height;
-	btext_renderToSurface(font, "A/S/D: Select RGB component.", 0, textcolor, surface, &rect, BTEXT_DEFAULT);
+	btext_renderToSurface(font, "LEFT/RIGHT: Decrement or incremenet output value.", 0, textcolor, surface, &rect, BTEXT_BGTRANSPARENT);
 	rect.y += font->height;
-	btext_renderToSurface(font, "Z/X: Select previous or next node.", 0, textcolor, surface, &rect, BTEXT_DEFAULT);
+	btext_renderToSurface(font, "A/S/D: Select RGB component.", 0, textcolor, surface, &rect, BTEXT_BGTRANSPARENT);
 	rect.y += font->height;
-	btext_renderToSurface(font, "C: Create new node.", 0, textcolor, surface, &rect, BTEXT_DEFAULT);
+	btext_renderToSurface(font, "Z/X: Select previous or next node.", 0, textcolor, surface, &rect, BTEXT_BGTRANSPARENT);
 	rect.y += font->height;
-	btext_renderToSurface(font, "V: Delete selected node.", 0, textcolor, surface, &rect, BTEXT_DEFAULT);
+	btext_renderToSurface(font, "C: Create new node.", 0, textcolor, surface, &rect, BTEXT_BGTRANSPARENT);
 	rect.y += font->height;
-	btext_renderToSurface(font, "W: Export ICC profile to out.icc.", 0, textcolor, surface, &rect, BTEXT_DEFAULT);
+	btext_renderToSurface(font, "V: Delete selected node.", 0, textcolor, surface, &rect, BTEXT_BGTRANSPARENT);
 	rect.y += font->height;
-	btext_renderToSurface(font, "Q: Quit", 0, textcolor, surface, &rect, BTEXT_DEFAULT);
+	btext_renderToSurface(font, "W: Export ICC profile to out.icc.", 0, textcolor, surface, &rect, BTEXT_BGTRANSPARENT);
+	rect.y += font->height;
+	btext_renderToSurface(font, "Q: Quit", 0, textcolor, surface, &rect, BTEXT_BGTRANSPARENT);
 
 	return(surface);
 }
@@ -596,9 +621,13 @@ void drawscreen(Uint8 *red, Uint8 *green, Uint8 *blue, Mark *marksel) {
 
 	drawramps(red, green, blue);
 
-	rect.x = 0;
+	rect.x = statusx;
 	rect.y = screen->h - font->height;
-	btext_renderToSurface(font, status, 0, textcolor, screen, &rect, BTEXT_DEFAULT);
+	SDL_BlitSurface(statusmsg, NULL, screen, &rect);
+	if(statusx > 1) {
+		statusx *= 3;
+		statusx /= 4;
+	}
 }
 
 int saveicc(char *skeleton, char *iccfile, Uint8 *red, Uint8 *green, Uint8 *blue) {

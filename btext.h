@@ -31,7 +31,7 @@ bfont *btext_loadFromSurface(SDL_Surface *surface);
  *
  * return		A bfont handle, or NULL on error.
  */
-bfont *btext_loadFromBMP(char *bmpfile);
+bfont *btext_loadFromBMP(const char *bmpfile);
 
 /*
  * Free a font handle.
@@ -48,7 +48,7 @@ void btext_free(bfont *f);
  *
  * return		Width of text when rendered.
  */
-Uint32 btext_calcWidth(bfont *f, char *text);
+Uint32 btext_calcWidth(bfont *f, const char *text);
 
 /*
  * Determine the number of chars in the string that will fit within a certain
@@ -62,27 +62,32 @@ Uint32 btext_calcWidth(bfont *f, char *text);
  *
  * return		Width in chars.
  */
-Uint32 btext_clipTextToWidth(bfont *f, char *text, Uint32 limit, int overlap);
+Uint32 btext_clipTextToWidth(bfont *f, const char *text, Uint32 limit, int overlap);
 
 /*
  * Render text to it's own new surface.
  *
  * f			Font handle for rendering.
+ * f			Font handle for rendering.
  * text			String of text to be rendered.
- * bg			Background color or NULL for transparent.
- * fg			Foreground color or NULL for transparent.
+ * bgval		Background color, alpha of 0 for transparent.
+ * fgval		Foreground color, alpha of 0 for transparent.
+ * rect			Rectangle describing the square within which text should
+ *				appear.  w member set to 0 for clipping to entire surface,
+ *				otherwise clips to specified rectangle or surface.  h is
+ *				ignored.  x and y are meaningless.
  *
- * return		SDL_Surface containing render.
+ * return		SDL_Surface containing render, or NULL on failure.
  */
-/*SDL_Surface *btext_render(bfont *f, char *text, SDL_Color *bg, SDL_Color *fg);*/
+SDL_Surface *btext_render(bfont *f, const char *text, Uint32 bgval, Uint32 fgval, SDL_Rect *rect, Uint32 flags);
 
 /*
  * Render the font to a surface at a particular location with the specified color.
  *
  * f			Font handle for rendering.
  * text			String of text to be rendered.
- * bg			Background color, alpha of 0 for transparent.
- * fg			Foreground color, alpha of 0 for transparent.
+ * bgval		Background color, alpha of 0 for transparent.
+ * fgval		Foreground color, alpha of 0 for transparent.
  * surface		Surface to be rendered to.
  * rect			Rectangle describing the square within which text should
  *				appear.  w member set to 0 for clipping to entire surface,
@@ -91,5 +96,5 @@ Uint32 btext_clipTextToWidth(bfont *f, char *text, Uint32 limit, int overlap);
  *
  * return		Zero on success.
  */
-int btext_renderToSurface(bfont *f, char *text, Uint32 bgval, Uint32 fgval, SDL_Surface *surface, SDL_Rect *rect, Uint32 flags);
+int btext_renderToSurface(bfont *f, const char *text, Uint32 bgval, Uint32 fgval, SDL_Surface *surface, SDL_Rect *rect, Uint32 flags);
 

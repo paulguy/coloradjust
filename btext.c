@@ -109,7 +109,7 @@ bfont *btext_loadFromSurface(SDL_Surface *fontsurface) {
 	return(f);
 }
 
-bfont *btext_loadFromBMP(char *bmpfile) {
+bfont *btext_loadFromBMP(const char *bmpfile) {
 	bfont *f;
 	SDL_Surface *surface;
 
@@ -128,7 +128,7 @@ void btext_free(bfont *f) {
 	free(f);
 }
 
-Uint32 btext_calcWidth(bfont *f, char *text) {
+Uint32 btext_calcWidth(bfont *f, const char *text) {
 	Uint32 width, offset;
 	unsigned char *utext;
 
@@ -146,7 +146,7 @@ Uint32 btext_calcWidth(bfont *f, char *text) {
 	return(width);
 }
 
-Uint32 btext_clipTextToWidth(bfont *f, char *text, Uint32 limit, int overlap) {
+Uint32 btext_clipTextToWidth(bfont *f, const char *text, Uint32 limit, int overlap) {
 	Uint32 width, offset;
 	unsigned char *utext;
 
@@ -169,9 +169,62 @@ Uint32 btext_clipTextToWidth(bfont *f, char *text, Uint32 limit, int overlap) {
 	return(offset);
 }
 
-/*SDL_Surface *btext_render(bfont *f, char *text, SDL_Color *bg, SDL_Color *fg);*/
+SDL_Surface *btext_render(bfont *f, const char *text, Uint32 bgval, Uint32 fgval, SDL_Rect *rect, Uint32 flags) {
+	Uint32 length, width;
+	Uint32 c, x, y;
+	Uint32 start, lstart, blitoffset;
+	Uint32 dataoffset;
+	unsigned char *utext;
+	SDL_Surface *surface;
 
-int btext_renderToSurface(bfont *f, char *text, Uint32 bgval, Uint32 fgval, SDL_Surface *surface, SDL_Rect *rect, Uint32 flags) {
+	if(rect == NULL) {
+		length = strlen(text);
+		width = btext_calcWidth(f, text);
+	} else {
+		length = btext_clipTextToWidth(f, text, rect->w, 1);
+		width = rect->w;
+	}
+	if(length == 0)
+		return(NULL);
+
+	surface = SDL_CreateRGBSurface(SDL_SWSURFACE, width, f->height, 32, RMASK, GMASK, BMASK, AMASK);
+	if(surface == NULL)
+		return(NULL);
+
+	if(SDL_LockSurface(surface) < 0)
+		return(NULL);
+
+	utext = (unsigned char *)text;
+	start = 0;
+	for(c = 0; c < length; c++) {
+		lstart = start;
+		dataoffset = 0;
+		if(utext[c] >= ' ' && utext[c] <= '\x7f') {
+			for(y = 0; y < f->height; y++) {
+				blitoffset = lstart;
+				for(x = 0; x < (f->widths)[utext[c] - 32]; x++) {
+					if((f->fontData)[utext[c] - 32][dataoffset] == 0) {
+						if(!(flags & BTEXT_BGTRANSPARENT))
+							PIXELS(surface)[blitoffset] = bgval;
+					} else {
+						if(!(flags & BTEXT_FGTRANSPARENT))
+							PIXELS(surface)[blitoffset] = fgval;
+					}
+					blitoffset++;
+					dataoffset++;
+				}
+				lstart += surface->w;
+			}
+			start += (f->widths)[text[c] - 32];
+		}
+	}
+
+	SDL_UnlockSurface(surface);
+
+	return(surface);
+}
+
+int btext_renderToSurface(bfont *f, const char *text, Uint32 bgval, Uint32 fgval, SDL_Surface *surface, SDL_Rect *rect, Uint32 flags) {
 	Uint32 length;
 	Uint32 c, x, y;
 	Uint32 start, lstart, blitoffset;
@@ -182,6 +235,7 @@ int btext_renderToSurface(bfont *f, char *text, Uint32 bgval, Uint32 fgval, SDL_
 		rect->w = surface->w - rect->x; /* clip to surface dimensions */
 	length = btext_clipTextToWidth(f, text, rect->w, 1);
 	if(length == 0)
+		return(-1);
 
 	if(SDL_LockSurface(surface) < 0)
 		return(-1);
