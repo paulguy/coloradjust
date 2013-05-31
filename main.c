@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <SDL.h>
 
 #include "btext.h"
@@ -32,6 +33,13 @@ Uint32 gridcolor, bordercolor, textcolor, cursorcolor;
 Uint32 redcolor, greencolor, bluecolor, colortextcolor;
 bfont *font;
 Mode mode;
+char status[256];
+const char STATUS_READY[]	= "Ready";
+const char STATUS_RED[]		= "Red graph selected";
+const char STATUS_GREEN[]	= "Green graph selected";
+const char STATUS_BLUE[]	= "Blue graph selected";
+const char STATUS_CANTSAVE[]= "Couldn't save to out.icc!";
+const char STATUS_SAVED[]	= "ICC file written to out.icc successfully.";
 
 SDL_Surface *createBackground();
 int buildcurve(Uint8 *ramp, Mark *marks);
@@ -138,6 +146,7 @@ int main(int argc, char **argv) {
 	moveup = movedown = moveleft = moveright
 	= moveupstep = movedownstep = moveleftstep = moverightstep
 	= rebuild = 0;
+	memcpy(status, STATUS_READY, sizeof(STATUS_READY));
 
 	drawscreen(red, green, blue, curmark);
 	while(running == 1) {
@@ -153,18 +162,21 @@ int main(int argc, char **argv) {
 							break;
 						case SDLK_a:
 							if(mode != RED) {
+								memcpy(status, STATUS_RED, sizeof(STATUS_RED));
 								mode = RED;
 								curmark = rmarks;
 							}
 							break;
 						case SDLK_s:
 							if(mode != GREEN) {
+								memcpy(status, STATUS_GREEN, sizeof(STATUS_GREEN));
 								mode = GREEN;
 								curmark = gmarks;
 							}
 							break;
 						case SDLK_d:
 							if(mode != BLUE) {
+								memcpy(status, STATUS_BLUE, sizeof(STATUS_BLUE));
 								mode = BLUE;
 								curmark = bmarks;
 							}
@@ -221,9 +233,9 @@ int main(int argc, char **argv) {
 							break;
 						case SDLK_w:
 							if(saveicc("skeleton.icc", "out.icc", red, green, blue) == -1) {
-								fprintf(stderr, "Couldn't save to out.icc!\n");
+								memcpy(status, STATUS_CANTSAVE, sizeof(STATUS_CANTSAVE));
 							} else {
-								fprintf(stderr, "ICC file written to out.icc successfully.\n");
+								memcpy(status, STATUS_SAVED, sizeof(STATUS_SAVED));
 							}
 						default:
 							break;
@@ -579,9 +591,14 @@ void drawscreen(Uint8 *red, Uint8 *green, Uint8 *blue, Mark *marksel) {
 	}
 	rect.x++;
 	rect.y++;
+	rect.w = 0;
 	btext_renderToSurface(font, buffer, colortextcolor, 0, screen, &rect, BTEXT_BGTRANSPARENT);
 
 	drawramps(red, green, blue);
+
+	rect.x = 0;
+	rect.y = screen->h - font->height;
+	btext_renderToSurface(font, status, 0, textcolor, screen, &rect, BTEXT_DEFAULT);
 }
 
 int saveicc(char *skeleton, char *iccfile, Uint8 *red, Uint8 *green, Uint8 *blue) {
