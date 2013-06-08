@@ -43,13 +43,13 @@ const char STATUS_CANTSAVE[]= "Couldn't save to out.icc!";
 const char STATUS_SAVED[]	= "ICC file written to out.icc successfully.";
 
 SDL_Surface *createBackground();
-int buildcurve(Uint8 *ramp, Mark *marks);
+int buildcurve_linear(Uint8 *ramp, Mark *marks);
 Mark *initmarks();
 void addmark(Mark *curmark); // adds AFTER selected mark
 void delmark(Mark *curmark);
 void plotgraph(Uint8 *points, Uint8 r, Uint8 g, Uint8 b);
 void drawramps(Uint8 *red, Uint8 *green, Uint8 *blue);
-void drawscreen(Uint8 *red, Uint8 *green, Uint8 *blue, Mark *marksel);
+void drawscreen(Uint8 *red, Uint8 *green, Uint8 *blue, Mark *rmarks, Mark *gmarks, Mark *bmarks, Mark *marksel);
 int saveicc(char *skeleton, char *iccfile, Uint8 *red, Uint8 *green, Uint8 *blue);
 int updateStatus(const char *status);
 
@@ -66,6 +66,7 @@ int main(int argc, char **argv) {
 	Mark *temp;
 
 	SDL_Event event;
+	int (*buildcurve)(Uint8 *ramp, Mark *marks);
 
 	if(SDL_Init(SDL_INIT_VIDEO) == -1) {
 		fprintf(stderr, "Couldn't initialize SDL: %s\n", SDL_GetError());
@@ -87,7 +88,7 @@ int main(int argc, char **argv) {
 	}
 
 /* ----- SET UI COLORS HERE ----- */
-	gridcolor = SDL_MapRGB(screen->format, 170, 170, 170);
+	gridcolor = SDL_MapRGB(screen->format, 85, 85, 85);
 	bordercolor = SDL_MapRGB(screen->format, 255, 255, 255);
 	textcolor = SDL_MapRGB(screen->format, 255, 255, 255);
 	cursorcolor = SDL_MapRGB(screen->format, 255, 255, 255);
@@ -103,6 +104,7 @@ int main(int argc, char **argv) {
 		exit(-1);
 	}
 
+	buildcurve = buildcurve_linear; /* set default curve */
 	rmarks = initmarks();
 	if(rmarks == NULL) {
 		fprintf(stderr, "Couldn't initialize red marks linked list.");
@@ -150,7 +152,6 @@ int main(int argc, char **argv) {
 	= rebuild = 0;
 	updateStatus(STATUS_READY);
 
-	drawscreen(red, green, blue, curmark);
 	while(running == 1) {
 		while(SDL_PollEvent(&event)) {
 			switch(event.type) {
@@ -353,7 +354,7 @@ int main(int argc, char **argv) {
 			rebuild = 0;
 		}
 
-		drawscreen(red, green, blue, curmark);
+		drawscreen(red, green, blue, rmarks, gmarks, bmarks, curmark);
 		SDL_Flip(screen);
 		SDL_Delay(50);
 	}
@@ -382,39 +383,34 @@ int updateStatus(const char *status) {
 	return(0);
 }
 
-int buildcurve(Uint8 *ramp, Mark *marks) {
-	int start, change, length, initial, i;
-	double slope;
-	Mark *curmark;
+int buildcurve_linear(Uint8 *ramp, Mark *marks) {
+	int i, distance, leftdist, rightdist;
+	Mark *prevmark, *nextmark;
 
-	if(marks->pos != 0) {
+	if(marks->pos != 0 || marks->next == NULL) {
 		return(-1);
 	}
 
-	curmark = marks;
+	prevmark = marks;
+	nextmark = marks->next;
+	ramp[0] = prevmark->value;
+	distance = nextmark->pos - prevmark->pos;
 
-	while(curmark->next != NULL) {
-		start = curmark->pos;
-		length = ((Mark *)curmark->next)->pos - start;
-		initial = curmark->value;
-		change = ((Mark *)curmark->next)->value - curmark->value;
-
-		if(length < 1) {
-			return(-1);
+	for(i = 0; i < 256; i++) {
+		if(i == nextmark->pos) {
+			ramp[i] = nextmark->value;
+			if(nextmark->next == NULL)
+				break;
+			nextmark = nextmark->next;
+			prevmark = prevmark->next;
+			distance = nextmark->pos - prevmark->pos;
 		}
-
-		slope = (double)change / (double)length;
-		for(i = 0; i < length; i++) {
-			ramp[i + start] = (unsigned char)(slope * (double)i) + initial;
-		}
-
-		curmark = curmark->next;
+		leftdist = i - prevmark->pos;
+		rightdist = nextmark->pos - i;
+		ramp[i] =	(prevmark->value * ((double)rightdist / (double)distance)) +
+					(nextmark->value * ((double)leftdist / (double)distance));
 	}
 
-	if(curmark->pos != 255) {
-		return(-1);
-	}
-	ramp[255] = curmark->value;
 	return(0);
 }
 
@@ -582,7 +578,7 @@ void drawramps(Uint8 *red, Uint8 *green, Uint8 *blue) {
 	}
 }
 
-void drawscreen(Uint8 *red, Uint8 *green, Uint8 *blue, Mark *marksel) {
+void drawscreen(Uint8 *red, Uint8 *green, Uint8 *blue, Mark *rmarks, Mark *gmarks, Mark *bmarks, Mark *marksel) {
 	SDL_Rect rect;
 	char buffer[32];
 	Uint32 width;
@@ -592,10 +588,34 @@ void drawscreen(Uint8 *red, Uint8 *green, Uint8 *blue, Mark *marksel) {
 	plotgraph(red, 255, 0, 0);
 	plotgraph(green, 0, 255, 0);
 	plotgraph(blue, 0, 0, 255);
-	rect.w = 3;
-	rect.h = 3;
+	while(rmarks != NULL) {
+		rect.x = rmarks->pos - 1;
+		rect.y = 255 - rmarks->value - 1;
+		rect.w = 3;
+		rect.h = 3;
+		SDL_FillRect(screen, &rect, redcolor);
+		rmarks = rmarks->next;
+	}
+	while(gmarks != NULL) {
+		rect.x = gmarks->pos - 1;
+		rect.y = 255 - gmarks->value - 1;
+		rect.w = 3;
+		rect.h = 3;
+		SDL_FillRect(screen, &rect, greencolor);
+		gmarks = gmarks->next;
+	}
+	while(bmarks != NULL) {
+		rect.x = bmarks->pos - 1;
+		rect.y = 255 - bmarks->value - 1;
+		rect.w = 3;
+		rect.h = 3;
+		SDL_FillRect(screen, &rect, bluecolor);
+		bmarks = bmarks->next;
+	}
 	rect.x = marksel->pos - 1;
 	rect.y = 255 - marksel->value - 1;
+	rect.w = 3;
+	rect.h = 3;
 	SDL_FillRect(screen, &rect, cursorcolor);
 	snprintf(buffer, 32, "%d, %d", marksel->pos, marksel->value);
 	width = btext_calcWidth(font, buffer);
